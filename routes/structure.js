@@ -1,0 +1,280 @@
+var express = require('express');
+var router = express.Router();
+require('dotenv').config();
+var cors = require('cors');
+const fs = require('fs');
+const fsx = require('fs-extra');
+const path = require('path');
+const ncp = require('ncp').ncp;
+const archiver = require('archiver');
+
+var myBucket = process.env.AWS_BUCKET_NAME;
+var uploadedPackURL = '';
+
+/* GET users listing. */
+router.post('/',cors(), async function(req, res, next) {
+  
+  var msgOpts = req.body;
+  var sgver = msgOpts[0].sgver;
+  var userGUID = msgOpts[0].userGUID;
+  //console.log(msgOpts);
+  if(sgver=='1.2.2'){
+    // all the 1.2.2 code
+
+  }
+  if(sgver=='1.3.0' || sgver=='1.3.1'){
+    console.log(sgver,"\r\n======================================================================");
+    console.log(msgOpts);
+    
+    var uploadedPackURL = await generate(msgOpts,sgver);
+    await new Promise((resolve, reject) => setTimeout(resolve, 3000));
+    res.json({pack_response: true});
+    
+  } // end version 1.3.1
+  
+  // STEP 1
+    // IN structure pack base folder go to functions => generate => structure_types.mcfunction
+  // STEP 2
+    // IN structure pack base folder go to loot_tables => structure_type.json
+  // STEP 3
+    // Add the uploaded structure file to the pack/data/structures/structures folder
+  // STEP 4 ZIP UP THE PACK
+  // STEP 5 Upload the Pack to S3 for easy secure downloading
+  // STEP 6 Return the Download URL to the front end
+  // delete all source user files
+  await new Promise((resolve, reject) => setTimeout(resolve, 30000));
+  deleteFolder('./nbt_upld/' + userGUID);
+  deleteFolder('./sgpack_temp/'+userGUID);
+  
+});
+
+async function generate(msgOpts,sgver){
+  var mcFNFilePath = './assets/'+sgver+'/structure_pack_base/data/structures/functions/generate/structure_types.mcfunction';
+  var mcFN = fs.readFileSync(mcFNFilePath, 'utf8');
+  var mcLTFilePath = './assets/'+sgver+'/structure_pack_base/data/structures/loot_tables/structure_type.json';
+  var mcLT = fs.readFileSync(mcLTFilePath, 'utf8');
+  var mcFNContent = mcFN;
+  var mcLTContent = JSON.parse(mcLT);
+  var mcFNArray = [];
+  var userDir = './sgpack_temp/'+msgOpts[0].userGUID;
+  var userGUID = msgOpts[0].userGUID;
+  var strPackDest = userDir; 
+  // Delete all the user pack folder/files so we can run it again
+  // console.log('1. Delete Old User Folder');
+  // await deleteFolder(strPackDest);
+
+  // create a folder for USER GUID
+  console.log('1. Create User SGPack Temp Folder');
+  await createUserSGTempFolder(userDir);
+
+  // copy in all the static files
+  var strPackSource = './assets/'+sgver+"/structure_pack_base";
+  console.log('2. COPY PACK BASE: ',strPackSource,strPackDest);
+  await copyBasePackToUser(strPackSource,strPackDest+'/');
+
+  // DELETE files we're modifying 
+  var newStrPackMCFNFile = strPackDest+'/data/structures/functions/generate/structure_types.mcfunction';
+  //await deleteFile(newStrPackMCFNFile);
+  var newStrPackMCLTFile = strPackDest+'/data/structures/loot_tables/structure_type.json';
+  //await deleteFile(newStrPackMCLTFile);
+
+  // Setup the Data Replacements for the files
+  console.log('3. Replace Structure Vars');
+  await replaceStructureVars(msgOpts,mcFNArray,mcFNContent,mcLTContent,mcFN);
+
+  var newMCFNFile = newStrPackMCFNFile;
+  var newMCLTFile = newStrPackMCLTFile;
+
+  console.log('4. Write new MCFN File');
+  await writeNewFile('mcfn',newMCFNFile,mcFNArray);
+
+  console.log('5. Write new Loot Table File');
+  await writeNewFile('mclt',newMCLTFile,mcLTContent);
+
+  // Copy Structure Files
+  var upldStructDir = './nbt_upld/'+userGUID;
+  var upldStuctDest = strPackDest+'/data/structures/structures';
+  console.log('6. COPY UPLOADED STRUCTURES: ',upldStructDir,upldStuctDest);
+  await copyUpldStructures(upldStructDir,upldStuctDest);
+
+  // Zip up the whole package
+  console.log('7. Zip it all up!');
+  var zipFilename = await zipItUp(userGUID,strPackDest);
+  console.log(zipFilename);
+
+  console.log('Download ready!');
+};
+///////////////////////////////////////////////////
+
+function createUserSGTempFolder(userDir){
+  if (!fs.existsSync(userDir)){
+    fs.mkdirSync(userDir);
+    fs.chmod(userDir,0o700,function(){
+      console.log(userDir+' set to 0o700, we hope');
+    });
+    console.log('User DIR Created: ',userDir);
+  }else{
+    console.error('User folder not created: ',userDir);
+  }
+}
+
+async function copyBasePackToUser (strPackSource,strPackDest) {
+  try {
+    await fsx.copy(strPackSource,strPackDest)
+    console.log('Base pack copied to user')
+  } catch (err) {
+    console.error(err)
+  }
+}
+
+async function copyUpldStructures (upldStructDir,upldStuctDest) {
+  try {
+    await fsx.copy(upldStructDir,upldStuctDest)
+    console.log('Uploaded Structures')
+  } catch (err) {
+    console.error(err)
+  }
+}
+
+function replaceStructureVars(msgOpts,mcFNArray,mcFNContent,mcLTContent,mcFN){
+  // LOOP THROUGH ALL THE UPLOADED STRUCTURES
+  msgOpts.forEach(thisMSG => {
+    //console.log(thisMSG);
+    
+    var fileNoExt = thisMSG.filename.slice(0, -4);
+    var structIdRng = Math.floor((Math.random() * 1000) + 1);
+    // mcFN Replacements
+    if(thisMSG.rotation=='yes'){
+      var rotateLine = "execute as @e[type=armor_stand,tag=located,tag=s_structure,scores={s_type=<STRUCT_ID>},tag=s_kill] run function structures:generate/rotate";
+      mcFNContent = mcFNContent.replace(/\<STRUCT_ROTATION\>/g,rotateLine);
+    }else{
+      mcFNContent = mcFNContent.replace(/\<STRUCT_ROTATION\>/g,'');
+    }
+    mcFNContent = mcFNContent.replace(/\<STRUCT_ID\>/g,structIdRng);
+    mcFNContent = mcFNContent.replace(/\<STRUCT_PLACEMENT\>/g,thisMSG.placement);
+    mcFNContent = mcFNContent.replace(/\<POSX\>/g,thisMSG.posx);
+    mcFNContent = mcFNContent.replace(/\<POSY\>/g,thisMSG.posy);
+    mcFNContent = mcFNContent.replace(/\<POSZ\>/g,thisMSG.posz);
+    mcFNContent = mcFNContent.replace(/\<STRUCT_NAME\>/g,fileNoExt);
+    mcFNContent += "\r\n\r\n";
+    //console.log(mcFNContent);
+    mcFNArray.push({mcFNContent});
+    mcFNContent = mcFN;
+    //console.log('mcFN: ',mcFNArray);
+    
+    // Add Dimension/Biome Conditional Predicates
+    var conditions = {};
+    var condBase = [{condition:"minecraft:location_check",predicate:null}];
+    var condCnt = 0;
+    if(thisMSG.dimension!==null && thisMSG.dimension!=='custom'){
+      conditions.dimension=thisMSG.dimension;
+      condCnt++;
+    }else if(thisMSG.dimensionOther!==""){
+      conditions.dimension=thisMSG.dimensionOther;
+      condCnt++;
+    }
+    if(thisMSG.biome!==null && thisMSG.biome!=='custom'){
+      conditions.biome=thisMSG.biome;
+      condCnt++;
+    }else if(thisMSG.biomeOther!==""){
+      conditions.biome=thisMSG.biomeOther;
+      condCnt++;
+    }
+    if(condCnt > 0){
+      condBase[0].predicate = {...conditions};
+    }else{
+      condBase = [];
+    }
+    var newEntry = {type:"item",name:"minecraft:diamond_hoe",weight: parseInt(thisMSG.weight,10),conditions:condBase,functions:[{function: "set_count",count: structIdRng}]};
+    mcLTContent.pools[0].entries.push(newEntry);
+    console.log('mcLT: ',mcLTContent);
+  });
+}
+
+function writeNewFile(filetype,filename,structureFileContentArray){
+  if(filetype=='mcfn'){
+    var MCFNfileToWrite = fs.createWriteStream(filename);
+    MCFNfileToWrite.on('error', function(err) { /* error handling */ });
+    structureFileContentArray.forEach(function(el) { MCFNfileToWrite.write(el.mcFNContent); });
+    MCFNfileToWrite.end();
+    console.log("MCFUNCTION file is saved.");
+  }
+  if(filetype=='mclt'){
+    var MCLTJSONtoWrite = JSON.stringify(structureFileContentArray);
+    fs.writeFileSync(filename, MCLTJSONtoWrite);
+    console.log("MCLootTable file is saved.");
+  }
+}
+
+function zipItUp(userGUID,strPackDest){
+  // ZIP it all up!
+  var zipOutputDir = './zip_output';
+  var zipFilename = zipOutputDir+'/JDawgtorsStructureGenDataPack-'+userGUID+'.zip';
+  var outputArchive = fs.createWriteStream(zipFilename);
+  var archive = archiver('zip');
+
+  outputArchive.on('close', function () {
+    console.log(archive.pointer() + ' total bytes');
+    console.log('archiver has been finalized and the output file descriptor has closed.');
+  });
+
+  archive.on('error', function(err){
+      throw err;
+  });
+
+  archive.pipe(outputArchive);
+  archive.directory(strPackDest, false);
+  archive.finalize();
+  return zipFilename;
+}
+
+function deleteFolder(folder){
+  if (fs.existsSync(folder)){
+    fs.rmdir(folder, { recursive: true }, (err) => {
+      if (err) {
+          throw err;
+      }
+      console.log(`DELETE Folder: ${folder}`);
+    });
+  }
+}
+
+function deleteFile(filename){
+  if (fs.existsSync(filename)){
+    fs.unlink(filename, function (err) {
+      if (err) throw err;
+      // if no error, file has been deleted successfully
+      console.log('File Deleted: '+filename);
+    });
+  }else{
+    console.error('Can\'t delete '+filename+', it doesn\'t exist');
+  }
+}
+
+function uploadToS3(filename){
+  // call S3 to retrieve upload file to specified bucket
+  var uploadParams = {Bucket: myBucket, Key: '', Body: ''};
+  var uploadedFileUrl = '';
+  // Configure the file stream and obtain the upload parameters
+  var fileStream = fs.createReadStream(filename);
+  fileStream.on('error', function(err) {
+    console.log('File Error', err);
+  });
+  uploadParams.Body = fileStream;
+  uploadParams.Key = path.basename(filename);
+
+  // call S3 to retrieve upload file to specified bucket
+  s3.upload (uploadParams, function (err, data) {
+    if (err) {
+      console.log("Error", err);
+    } if (data) {
+      console.log("Upload Success", data.Location);
+      uploadedFileUrl = data.Location;
+      //deleteFile(filename);
+      return data.Location;
+    }
+  });
+  return uploadedFileUrl;
+}
+
+module.exports = router;
