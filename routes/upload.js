@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const cors = require('cors');
 const multer = require('multer');
-const path = require('path');
 const helpers = require('../helpers');
 const fs = require('fs');
 

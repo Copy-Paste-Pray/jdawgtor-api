@@ -9,7 +9,6 @@ const axios = require('axios');
 
 var structure = require('./routes/structure');
 var upload = require('./routes/upload');
-var download = require('./routes/download');
 
 var app = express();
 app.use('/sg',express.static('zip_output'));
@@ -20,6 +19,5 @@ app.use(cookieParser())
 
 app.use('/api/v1/structure', structure);
 app.use('/api/v1/upload', upload);
-app.use('/api/v1/download', download);
 
 module.exports = app;
