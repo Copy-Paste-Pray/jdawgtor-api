@@ -7,34 +7,18 @@ const archiver = require('archiver');
 
 /* GET users listing. */
 router.post('/',cors(), async function(req, res, next) {
-  
   var msgOpts = req.body;
   var sgver = msgOpts[0].sgver;
-  //var userGUID = msgOpts[0].userGUID;
-  //console.log(msgOpts);
+
   if(sgver=='1.3.0' || sgver=='1.3.1'){
     console.log(sgver,"\r\n======================================================================");
     //console.log(msgOpts);
     
-    var uploadedPackURL = await generate(msgOpts,sgver);
-    await new Promise((resolve, reject) => setTimeout(resolve, 3000));
-    res.json({pack_response: true});
-    
+    await generate(msgOpts,sgver);
+    setTimeout(function(){
+      res.json({pack_response: true});
+    }, 3000);
   } // end version 1.3.1
-  
-  // STEP 1
-    // IN structure pack base folder go to functions => generate => structure_types.mcfunction
-  // STEP 2
-    // IN structure pack base folder go to loot_tables => structure_type.json
-  // STEP 3
-    // Add the uploaded structure file to the pack/data/structures/structures folder
-  // STEP 4 ZIP UP THE PACK
-  // STEP 5 Upload the Pack to S3 for easy secure downloading
-  // STEP 6 Return the Download URL to the front end
-  // delete all source user files
-  //await new Promise((resolve, reject) => setTimeout(resolve, 30000));
-  //deleteFolder('./nbt_upld/' + userGUID);
-  //deleteFolder('./sgpack_temp/'+userGUID);
 });
 
 async function generate(msgOpts,sgver){
