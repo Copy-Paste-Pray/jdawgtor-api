@@ -1,11 +1,7 @@
-require('dotenv').config()
 var express = require('express');
-var path = require('path');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
 var cors = require('cors');
-
-const axios = require('axios');
 
 var structure = require('./routes/structure');
 var upload = require('./routes/upload');
