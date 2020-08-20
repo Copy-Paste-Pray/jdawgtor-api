@@ -4,6 +4,7 @@ var cors = require('cors');
 const fs = require('fs');
 const fsx = require('fs-extra');
 const archiver = require('archiver');
+const { parse } = require('path');
 
 /* GET users listing. */
 router.post('/',cors(), async function(req, res, next) {
@@ -180,7 +181,10 @@ function replaceStructureVars(msgOpts,mcFNArray,mcFNContent,mcLTContent,mcFN,mcY
       mcYRContent = mcYRContent.replace(/\<STRUCT_NAME\>/g,fileNoExt);
       mcYRContent += "\r\n\r\n";
       mcYRArray.push({mcYRContent});
-      var newYRFunction = {"function": "set_count","count": {"min": thisMSG.yRangeMin,"max": thisMSG.yRangeMax}};
+      var yrMin = parseInt(thisMSG.yRangeMin,10);
+      var yrMax = parseInt(thisMSG.yRangeMax,10);
+      console.log(typeof yrMin, typeof yrMax)
+      var newYRFunction = {"function": "set_count","count": {"min": yrMin,"max": yrMax}};
       mcYRJSONContent.pools[0].entries[0].functions.push(newYRFunction);
       var newStrPackMCYRFile = strPackDest+'/data/structures/loot_tables/y_range/'+fileNoExt+'.json';
       writeNewFile('mcyrjson',newStrPackMCYRFile,mcYRJSONContent);
