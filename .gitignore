@@ -3,3 +3,4 @@ node_modules
 .nbt
 nbt_upload/*
 sgpack_temp/*
+.zip
