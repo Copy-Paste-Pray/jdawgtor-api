@@ -26,21 +26,24 @@ async function generate(msgOpts,sgver){
   var mcFNFilePath = './assets/'+sgver+'/structure_pack_base/data/structures/functions/generate/structure_types.mcfunction';
   var mcFN = fs.readFileSync(mcFNFilePath, 'utf8');
   var mcFNContent = mcFN;
+  console.log('mcFNContent: ',mcFNContent.length);
   var mcFNArray = [];
 
   var mcLTFilePath = './assets/'+sgver+'/structure_pack_base/data/structures/loot_tables/structure_type.json';
   var mcLT = fs.readFileSync(mcLTFilePath, 'utf8');
   var mcLTContent = JSON.parse(mcLT);
+  console.log('mcLTContent: ',mcLTContent.length);
 
   var mcYRFilePath = './assets/'+sgver+'/structure_pack_base/data/structures/functions/y_range/structure_types.mcfunction';
   var mcYR = fs.readFileSync(mcYRFilePath, 'utf8');
   var mcYRContent = mcYR;
+  console.log('mcYRContent: ',mcYRContent.length);
   var mcYRArray = [];
 
   var mcYRJSONFilePath = './assets/'+sgver+'/structure_pack_base/data/structures/loot_tables/y_range/custom.json';
   var mcYRJSON = fs.readFileSync(mcYRJSONFilePath, 'utf8');
   var mcYRJSONContent = JSON.parse(mcYRJSON);
-  console.log(mcYRJSONContent);
+  console.log('mcYRJSONContent: ',mcYRJSONContent.length);
 
   var userDir = './sgpack_temp/'+msgOpts[0].userGUID;
   var userGUID = msgOpts[0].userGUID;
@@ -152,6 +155,19 @@ function replaceStructureVars(msgOpts,mcFNArray,mcFNContent,mcLTContent,mcFN,mcY
     var conditions = {};
     var condBase = [{condition:"minecraft:location_check",predicate:null}];
     var condCnt = 0;
+    if(thisMSG.dimension==="null"){
+      thisMSG.dimension = null;
+    }
+    if(thisMSG.dimensionOther==="null"){
+      thisMSG.dimensionOther = null;
+    }
+    if(thisMSG.biome==="null"){
+      thisMSG.biome = null;
+    }
+    if(thisMSG.biomeOther==="null"){
+      thisMSG.biomeOther = null;
+    }
+
     if(thisMSG.dimension!==null && thisMSG.dimension!=='custom'){
       conditions.dimension=thisMSG.dimension;
       condCnt++;
@@ -159,6 +175,7 @@ function replaceStructureVars(msgOpts,mcFNArray,mcFNContent,mcLTContent,mcFN,mcY
       conditions.dimension=thisMSG.dimensionOther;
       condCnt++;
     }
+    // Normal Biome: Biome NOT NULL and Biome is NOT CUSTOM
     if(thisMSG.biome!==null && thisMSG.biome!=='custom'){
       conditions.biome=thisMSG.biome;
       condCnt++;
