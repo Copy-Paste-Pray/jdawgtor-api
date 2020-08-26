@@ -202,10 +202,12 @@ function replaceStructureVars(msgOpts,mcFNArray,mcFNContent,mcLTContent,mcFN,mcY
       var yrMax = parseInt(thisMSG.yRangeMax,10);
       console.log(typeof yrMin, typeof yrMax)
       var newYRFunction = {"function": "set_count","count": {"min": yrMin,"max": yrMax}};
-      mcYRJSONContent.pools[0].entries[0].functions.push(newYRFunction);
+      var thisMCYRJSON = mcYRJSONContent;
+      thisMCYRJSON.pools[0].entries[0].functions.push(newYRFunction);
       var newStrPackMCYRFile = strPackDest+'/data/structures/loot_tables/y_range/'+fileNoExt+'.json';
-      writeNewFile('mcyrjson',newStrPackMCYRFile,mcYRJSONContent);
+      writeNewFile('mcyrjson',newStrPackMCYRFile,thisMCYRJSON);
       mcYRContent = mcYR;
+      thisMCYRJSON = null;
     }
   });
   if(mcYRArray){
