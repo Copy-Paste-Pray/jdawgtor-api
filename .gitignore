@@ -2,5 +2,7 @@ node_modules
 .env
 .nbt
 nbt_upload/*
+!nbt_upload/.gitkeep
 sgpack_temp/*
+!sgpack_temp/.gitkeep
 .zip
