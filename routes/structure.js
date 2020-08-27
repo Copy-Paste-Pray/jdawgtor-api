@@ -207,7 +207,8 @@ function replaceStructureVars(msgOpts,mcFNArray,mcFNContent,mcLTContent,mcFN,mcY
       var newStrPackMCYRFile = strPackDest+'/data/structures/loot_tables/y_range/'+fileNoExt+'.json';
       writeNewFile('mcyrjson',newStrPackMCYRFile,thisMCYRJSON);
       mcYRContent = mcYR;
-      thisMCYRJSON = null;
+      newYRFunction = null;
+      thisMCYRJSON.pools[0].entries[0].functions = [];
     }
   });
   if(mcYRArray){
